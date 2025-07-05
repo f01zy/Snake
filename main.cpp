@@ -1,8 +1,12 @@
+#include <SFML/Graphics.hpp>
+#include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/System/Vector2.hpp>
 #include <chrono>
 #include <iostream>
 #include <thread>
 #include <vector>
 
+const int BLOCK_SIZE = 15;
 const int COLS = 30;
 const int ROWS = 30;
 char map[ROWS][COLS];
@@ -26,17 +30,25 @@ void clearConsole() { system("clear"); }
 void clearMap() {
   for (int i = 0; i < ROWS; i++) {
     for (int j = 0; j < COLS; j++) {
-      map[i][j] = '.';
+      map[i][j] = ' ';
     }
   }
 }
 
-void renderMap() {
+void renderMap(sf::RenderWindow &window) {
   for (int i = 0; i < ROWS; i++) {
     for (int j = 0; j < COLS; j++) {
-      std::cout << map[i][j];
+      if (map[i][j] == '#') {
+        float x = static_cast<float>(j * BLOCK_SIZE);
+        float y = static_cast<float>(i * BLOCK_SIZE);
+
+        sf::RectangleShape block(sf::Vector2f(BLOCK_SIZE, BLOCK_SIZE));
+        block.setFillColor(sf::Color::Green);
+        block.setPosition({x, y});
+
+        window.draw(block);
+      }
     }
-    std::cout << std::endl;
   }
 }
 
@@ -83,31 +95,31 @@ void lose() {
   exit(0);
 }
 
-bool checkMoveAvailability() {
+bool isLose() {
   switch (direction) {
   case SIDE::LEFT:
     if (head[1] == 0) {
-      return 0;
+      return 1;
     }
     break;
   case SIDE::RIGHT:
     if (head[1] == COLS) {
-      return 0;
+      return 1;
     }
     break;
   case SIDE::TOP:
     if (head[0] == 0) {
-      return 0;
+      return 1;
     }
     break;
   case SIDE::BOTTOM:
     if (head[0] == ROWS) {
-      return 0;
+      return 1;
     }
     break;
   }
 
-  return 1;
+  return 0;
 }
 
 void moveNodeRelativeDirection(std::vector<int> &node, SIDE nodeDirection) {
@@ -128,7 +140,7 @@ void moveNodeRelativeDirection(std::vector<int> &node, SIDE nodeDirection) {
 }
 
 void move() {
-  if (!checkMoveAvailability()) {
+  if (isLose()) {
     lose();
   }
 
@@ -167,15 +179,71 @@ void move() {
   moveNodeRelativeDirection(head, direction);
 }
 
+void inputHandle(sf::RenderWindow &window) {
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape)) {
+    window.close();
+  }
+
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
+    if (direction == SIDE::RIGHT)
+      return;
+    direction = SIDE::LEFT;
+    nodes.push_back(head);
+  }
+
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
+    if (direction == SIDE::LEFT)
+      return;
+    direction = SIDE::RIGHT;
+    nodes.push_back(head);
+  }
+
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) {
+    if (direction == SIDE::BOTTOM)
+      return;
+    direction = SIDE::TOP;
+    nodes.push_back(head);
+  }
+
+  if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) {
+    if (direction == SIDE::TOP)
+      return;
+    direction = SIDE::BOTTOM;
+    nodes.push_back(head);
+  }
+}
+
 int main() {
-  while (1) {
-    clearConsole();
+  const int width = BLOCK_SIZE * COLS;
+  const int height = BLOCK_SIZE * ROWS;
 
-    clearMap();
-    prepareMap();
-    move();
-    renderMap();
+  sf::RenderWindow window(sf::VideoMode({width, height}), "Snake",
+                          sf::Style::Titlebar | sf::Style::Close);
+  window.setFramerateLimit(60);
 
-    sleep(SPEED);
+  sf::Clock clock;
+  float moveInterval = 0.2f;
+  float timeSinceLastMove = 0.0f;
+
+  while (window.isOpen()) {
+    while (const std::optional event = window.pollEvent()) {
+      if (event->is<sf::Event::Closed>())
+        window.close();
+    }
+
+    float dt = clock.restart().asSeconds();
+    timeSinceLastMove += dt;
+
+    if (timeSinceLastMove >= moveInterval) {
+      clearMap();
+      prepareMap();
+      move();
+      inputHandle(window);
+      timeSinceLastMove = 0.0f;
+    }
+
+    window.clear();
+    renderMap(window);
+    window.display();
   }
 }
