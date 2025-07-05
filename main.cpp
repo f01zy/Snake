@@ -1,8 +1,7 @@
 #include <SFML/Graphics.hpp>
-#include <SFML/Graphics/RenderWindow.hpp>
-#include <SFML/System/Vector2.hpp>
 #include <chrono>
 #include <iostream>
+#include <random>
 #include <thread>
 #include <vector>
 
@@ -11,14 +10,23 @@ const int COLS = 30;
 const int ROWS = 30;
 char map[ROWS][COLS];
 
-std::vector<int> head{6, 6};
+std::vector<int> head{0, 6};
 std::vector<int> tail{0, 0};
-std::vector<std::vector<int>> nodes = {{0, 6}};
+std::vector<std::vector<int>> nodes = {};
+std::vector<std::vector<int>> fruits = {};
 
 enum class SIDE { LEFT, RIGHT, TOP, BOTTOM };
-SIDE direction = SIDE::BOTTOM;
+SIDE direction = SIDE::RIGHT;
 
 const float SPEED = 0.2f;
+
+int random(int min, int max) {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution dist(min, max);
+
+  return dist(gen);
+}
 
 void sleep(float seconds) {
   int milliseconds = static_cast<int>(seconds * 1000);
@@ -38,7 +46,7 @@ void clearMap() {
 void renderMap(sf::RenderWindow &window) {
   for (int i = 0; i < ROWS; i++) {
     for (int j = 0; j < COLS; j++) {
-      if (map[i][j] == '#') {
+      if (map[i][j] == '#' || (fruits[0][0] == i && fruits[0][1] == j)) {
         float x = static_cast<float>(j * BLOCK_SIZE);
         float y = static_cast<float>(i * BLOCK_SIZE);
 
@@ -122,6 +130,60 @@ bool isLose() {
   return 0;
 }
 
+SIDE getTailMoveSideWithNode(std::vector<int> node) {
+  SIDE side;
+
+  if (node[0] == tail[0] && node[1] > tail[1]) {
+    side = SIDE::RIGHT;
+  }
+
+  else if (node[0] == tail[0] && node[1] < tail[1]) {
+    side = SIDE::LEFT;
+  }
+
+  else if (node[1] == tail[1] && node[0] > tail[0]) {
+    side = SIDE::BOTTOM;
+  }
+
+  else if (node[1] == tail[1] && node[0] < tail[0]) {
+    side = SIDE::TOP;
+  }
+
+  return side;
+}
+
+void addFruit() { fruits.push_back({random(0, ROWS), random(0, COLS)}); }
+
+void getFruit() {
+  SIDE side;
+
+  if (nodes.empty()) {
+    side = direction;
+  }
+
+  else {
+    side = getTailMoveSideWithNode(nodes[0]);
+  }
+
+  switch (side) {
+  case SIDE::LEFT:
+    tail[1]++;
+    break;
+  case SIDE::RIGHT:
+    tail[1]--;
+    break;
+  case SIDE::TOP:
+    tail[0]++;
+    break;
+  case SIDE::BOTTOM:
+    tail[0]--;
+    break;
+  }
+
+  fruits.pop_back();
+  addFruit();
+}
+
 void moveNodeRelativeDirection(std::vector<int> &node, SIDE nodeDirection) {
   switch (nodeDirection) {
   case SIDE::LEFT:
@@ -144,6 +206,8 @@ void move() {
     lose();
   }
 
+  moveNodeRelativeDirection(head, direction);
+
   if (!nodes.empty() && nodes[0][0] == tail[0] && nodes[0][1] == tail[1]) {
     nodes.erase(nodes.begin());
   }
@@ -154,29 +218,15 @@ void move() {
 
   else {
     std::vector<int> node = nodes[0];
-
-    SIDE tailDirection;
-
-    if (node[0] == tail[0] && node[1] > tail[1]) {
-      tailDirection = SIDE::RIGHT;
-    }
-
-    else if (node[0] == tail[0] && node[1] < tail[1]) {
-      tailDirection = SIDE::LEFT;
-    }
-
-    else if (node[1] == tail[1] && node[0] > tail[0]) {
-      tailDirection = SIDE::BOTTOM;
-    }
-
-    else if (node[1] == tail[1] && node[0] < tail[0]) {
-      tailDirection = SIDE::TOP;
-    }
-
+    SIDE tailDirection = getTailMoveSideWithNode(node);
     moveNodeRelativeDirection(tail, tailDirection);
   }
 
-  moveNodeRelativeDirection(head, direction);
+  std::vector<int> fruit = fruits[0];
+
+  if (head[0] == fruit[0] && head[1] == fruit[1]) {
+    getFruit();
+  }
 }
 
 void inputHandle(sf::RenderWindow &window) {
@@ -214,6 +264,8 @@ void inputHandle(sf::RenderWindow &window) {
 }
 
 int main() {
+  addFruit();
+
   const int width = BLOCK_SIZE * COLS;
   const int height = BLOCK_SIZE * ROWS;
 
@@ -235,10 +287,10 @@ int main() {
     timeSinceLastMove += dt;
 
     if (timeSinceLastMove >= moveInterval) {
+      inputHandle(window);
       clearMap();
       prepareMap();
       move();
-      inputHandle(window);
       timeSinceLastMove = 0.0f;
     }
 
