@@ -235,28 +235,28 @@ void inputHandle(sf::RenderWindow &window) {
   }
 
   if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
-    if (direction == SIDE::RIGHT)
+    if (direction == SIDE::RIGHT || direction == SIDE::LEFT)
       return;
     direction = SIDE::LEFT;
     nodes.push_back(head);
   }
 
   if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
-    if (direction == SIDE::LEFT)
+    if (direction == SIDE::LEFT || direction == SIDE::RIGHT)
       return;
     direction = SIDE::RIGHT;
     nodes.push_back(head);
   }
 
   if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) {
-    if (direction == SIDE::BOTTOM)
+    if (direction == SIDE::BOTTOM || direction == SIDE::TOP)
       return;
     direction = SIDE::TOP;
     nodes.push_back(head);
   }
 
   if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) {
-    if (direction == SIDE::TOP)
+    if (direction == SIDE::TOP || direction == SIDE::BOTTOM)
       return;
     direction = SIDE::BOTTOM;
     nodes.push_back(head);
@@ -287,7 +287,6 @@ int main() {
     timeSinceLastMove += dt;
 
     if (timeSinceLastMove >= moveInterval) {
-      inputHandle(window);
       clearMap();
       prepareMap();
       move();
@@ -295,6 +294,7 @@ int main() {
     }
 
     window.clear();
+    inputHandle(window);
     renderMap(window);
     window.display();
   }
